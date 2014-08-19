@@ -3,9 +3,9 @@ from __future__ import absolute_import
 import logging
 import os
 from .. import unittest
+from .. import mock
 
 import docker
-import mock
 
 from compose.cli import main
 from compose.cli.docopt_command import NoSuchCommand

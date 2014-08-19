@@ -1,5 +1,6 @@
 from __future__ import unicode_literals
 from __future__ import absolute_import
+
 from compose.service import Service
 from compose.config import make_service_dict
 from compose.const import LABEL_PROJECT

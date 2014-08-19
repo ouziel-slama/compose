@@ -1,7 +1,7 @@
 from __future__ import unicode_literals
 from __future__ import absolute_import
-import logging
 from functools import reduce
+import logging
 
 from docker.errors import APIError
 
@@ -10,6 +10,7 @@ from .const import LABEL_PROJECT, LABEL_SERVICE, LABEL_ONE_OFF, DEFAULT_TIMEOUT
 from .service import Service
 from .container import Container
 from .legacy import check_for_legacy_containers
+
 
 log = logging.getLogger(__name__)
 
