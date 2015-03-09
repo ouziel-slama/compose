@@ -4,11 +4,14 @@ import logging
 import os
 from .. import unittest
 
+import docker
 import mock
+from six import StringIO
 
 from fig.cli import main
+from fig.cli.errors import FigFileNotFound
 from fig.cli.main import TopLevelCommand
-from six import StringIO
+from fig.service import Service
 
 
 class CLITestCase(unittest.TestCase):
@@ -74,3 +77,49 @@ class CLITestCase(unittest.TestCase):
         self.assertEqual(logging.getLogger().level, logging.DEBUG)
         self.assertEqual(logging.getLogger('requests').level, logging.WARN)
         self.assertEqual(logging.getLogger('boto').level, logging.WARN)
+
+    @mock.patch('compose.cli.main.dockerpty', autospec=True)
+    def test_run_with_environment_merged_with_options_list(self, mock_dockerpty):
+        command = TopLevelCommand()
+        mock_client = mock.create_autospec(docker.Client)
+        mock_project = mock.Mock()
+        mock_project.get_service.return_value = Service(
+            'service',
+            client=mock_client,
+            environment=['FOO=ONE', 'BAR=TWO'],
+            image='someimage')
+
+        command.run(mock_project, {
+            'SERVICE': 'service',
+            'COMMAND': None,
+            '-e': ['BAR=NEW', 'OTHER=THREE'],
+            '--no-deps': None,
+            '--allow-insecure-ssl': None,
+            '-d': True,
+            '-T': None,
+            '--entrypoint': None,
+            '--service-ports': None,
+            '--rm': None,
+        })
+
+        _, _, call_kwargs = mock_client.create_container.mock_calls[0]
+        self.assertEqual(
+            call_kwargs['environment'],
+            {'FOO': 'ONE', 'BAR': 'NEW', 'OTHER': 'THREE'})
+
+
+def get_config_filename_for_files(filenames):
+    project_dir = tempfile.mkdtemp()
+    try:
+        make_files(project_dir, filenames)
+        command = TopLevelCommand()
+        command.base_dir = project_dir
+        return os.path.basename(command.get_config_path())
+    finally:
+        shutil.rmtree(project_dir)
+
+
+def make_files(dirname, filenames):
+    for fname in filenames:
+        with open(os.path.join(dirname, fname), 'w') as f:
+            f.write('')

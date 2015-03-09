@@ -9,6 +9,7 @@ import re
 import sys
 
 from docker.errors import APIError
+import six
 
 from fig.container import Container
 from fig.progress_stream import stream_output, StreamOutputError
@@ -454,7 +455,7 @@ class Service(object):
                 (parse_volume_spec(v).internal, {})
                 for v in container_options['volumes'])
 
-        container_options['environment'] = merge_environment(container_options)
+        container_options['environment'] = build_environment(container_options)
 
         if self.can_be_built():
             container_options['image'] = self.full_name
@@ -683,7 +684,14 @@ def split_port(port):
     return internal_port, (external_ip, external_port or None)
 
 
-def merge_environment(options):
+def get_env_files(options):
+    env_files = options.get('env_file', [])
+    if not isinstance(env_files, list):
+        env_files = [env_files]
+    return env_files
+
+
+def build_environment(options):
     env = {}
 
     if 'env_file' in options:
@@ -693,13 +701,22 @@ def merge_environment(options):
         else:
             env.update(env_vars_from_file(options['env_file']))
 
-    if 'environment' in options:
-        if isinstance(options['environment'], list):
-            env.update(dict(split_env(e) for e in options['environment']))
-        else:
-            env.update(options['environment'])
+    env.update(parse_environment(options.get('environment')))
+    return dict(resolve_env(k, v) for k, v in six.iteritems(env))
 
-    return dict(resolve_env(k, v) for k, v in env.iteritems())
+
+def parse_environment(environment):
+    if not environment:
+        return {}
+
+    if isinstance(environment, list):
+        return dict(split_env(e) for e in environment)
+
+    if isinstance(environment, dict):
+        return environment
+
+    raise ConfigError("environment \"%s\" must be a list or mapping," %
+                      environment)
 
 
 def split_env(env):
