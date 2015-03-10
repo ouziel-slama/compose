@@ -195,7 +195,7 @@ class ServiceTest(unittest.TestCase):
         mock_response = mock.Mock(Response)
         mock_response.status_code = 404
         mock_response.reason = "Not Found"
-        mock_container.create.side_effect = APIError(
+        mock_container.create_with_name.side_effect = APIError(
             'Mock error', mock_response, "No such image")
 
         # We expect the APIError because our service requires a
@@ -243,11 +243,33 @@ class ServiceTest(unittest.TestCase):
         self.assertEqual(parse_repository_tag("url:5000/repo"), ("url:5000/repo", ""))
         self.assertEqual(parse_repository_tag("url:5000/repo:tag"), ("url:5000/repo", "tag"))
 
-    def test_latest_is_used_when_tag_is_not_specified(self):
+    def test_get_links_with_service_only(self):
+        service_one = Service('one')
+        service_two = Service('two')
+        service = Service('foo', links=[
+            (service_one, None),
+            (service_two, 'other'),
+        ])
+
+        links = service._get_links(False, service_only_links=True)
+        self.assertEqual(links, [
+            ('default_one_1', 'one'),
+            ('default_one_1', 'default_one_1'),
+            ('default_one_1', 'one_1'),
+            ('default_two_1', 'other'),
+            ('default_two_1', 'default_two_1'),
+            ('default_two_1', 'two_1'),
+        ])
+
+    @mock.patch('fig.service.Container', autospec=True)
+    def test_latest_is_used_when_tag_is_not_specified(self, mock_container):
         service = Service('foo', client=self.mock_client, image='someimage')
-        Container.create = mock.Mock()
         service.create_container()
-        self.assertEqual(Container.create.call_args[1]['image'], 'someimage:latest')
+        mock_container.create_with_name.assert_called_once_with(
+            self.mock_client,
+            environment={},
+            image='someimage:latest',
+            name='default_foo_1')
 
 
 class ServiceVolumesTest(unittest.TestCase):

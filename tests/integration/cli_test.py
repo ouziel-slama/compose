@@ -399,17 +399,14 @@ class CLITestCase(DockerClientTestCase):
         service = self.project.get_service('simple')
         container = service.create_container()
         service.start_container(container)
-        started_at = container.dictionary['State']['StartedAt']
+        started_at = container.get('State.StartedAt')
         self.command.dispatch(['restart'], None)
         container.inspect()
         self.assertNotEqual(
-            container.dictionary['State']['FinishedAt'],
+            container.get('State.FinishedAt'),
             '0001-01-01T00:00:00Z',
         )
-        self.assertNotEqual(
-            container.dictionary['State']['StartedAt'],
-            started_at,
-        )
+        self.assertNotEqual(container.get('State.StartedAt'), started_at)
 
     def test_scale(self):
         project = self.project

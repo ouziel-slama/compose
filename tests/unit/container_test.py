@@ -35,6 +35,19 @@ class ContainerTest(unittest.TestCase):
             "Name": "/figtest_db_1",
         })
 
+    def test_create_with_name(self):
+        mock_client = mock.create_autospec(docker.Client)
+        name = 'the_name'
+        options = {'image': 'busybox', 'ports': []}
+        container = Container.create_with_name(mock_client, name=name, **options)
+        mock_client.create_container.assert_called_once_with(
+            name=name, **options)
+        self.assertEqual(container.name, name)
+        self.assertEqual(container.name_without_project, 'name')
+        self.assertEqual(
+            container.id,
+            mock_client.create_container.return_value.__getitem__.return_value)
+
     def test_environment(self):
         container = Container(None, {
             'Id': 'abc',

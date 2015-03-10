@@ -230,11 +230,17 @@ class Project(object):
            recreate=True,
            insecure_registry=False,
            detach=False,
-           do_build=True):
+           do_build=True,
+           fresh_start=False):
         running_containers = []
         for service in self.get_services(service_names, include_links=start_links):
-            create_func = (service.recreate_containers if recreate
-                           else service.start_or_create_containers)
+
+            if fresh_start:
+                create_func = service.fresh_start
+            elif recreate:
+                create_func = service.recreate_containers
+            else:
+                create_func = service.start_or_create_containers
 
             for container in create_func(
                     insecure_registry=insecure_registry,
