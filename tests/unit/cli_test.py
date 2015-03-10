@@ -78,7 +78,7 @@ class CLITestCase(unittest.TestCase):
         self.assertEqual(logging.getLogger('requests').level, logging.WARN)
         self.assertEqual(logging.getLogger('boto').level, logging.WARN)
 
-    @mock.patch('compose.cli.main.dockerpty', autospec=True)
+    @mock.patch('fig.cli.main.dockerpty', autospec=True)
     def test_run_with_environment_merged_with_options_list(self, mock_dockerpty):
         command = TopLevelCommand()
         mock_client = mock.create_autospec(docker.Client)
