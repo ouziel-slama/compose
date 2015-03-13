@@ -11,7 +11,7 @@ import sys
 from docker.errors import APIError
 import six
 
-from fig.container import Container
+from fig.container import Container, api_retry
 from fig.progress_stream import stream_output, StreamOutputError
 
 
@@ -239,7 +239,8 @@ class Service(object):
         except APIError as e:
             if e.response.status_code == 404 and e.explanation and 'No such image' in str(e.explanation):
                 log.info('Pulling image %s...' % container_options['image'])
-                output = self.client.pull(
+                output = pull_image(
+                    self.client,
                     container_options['image'],
                     stream=True,
                     insecure_registry=insecure_registry
@@ -568,7 +569,8 @@ class Service(object):
         if 'image' in self.options:
             image_name = self._get_image_name(self.options['image'])
             log.info('Pulling %s (%s)...' % (self.name, image_name))
-            self.client.pull(
+            pull_image(
+                self.client,
                 image_name,
                 insecure_registry=insecure_registry
             )
@@ -578,6 +580,11 @@ class Service(object):
             self.name,
             self.project,
             self.get_linked_names())
+
+
+@api_retry
+def pull_image(client, *args, **kwargs):
+    return client.pull(*args, **kwargs)
 
 
 def get_container_data_volumes(container, volumes_option):
