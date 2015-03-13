@@ -1,6 +1,7 @@
 from __future__ import unicode_literals
 from __future__ import absolute_import
 from collections import namedtuple
+import os
 
 import docker.errors
 import retrying
@@ -15,9 +16,8 @@ def retry_on_api_error(exception):
 
 
 api_retry = retrying.retry(
-    stop_max_attempt_number=3,
-    wait_random_min=200,
-    wait_random_max=2000,
+    stop_max_attempt_number=os.environ.get('FIG_API_RETRY_COUNT', 5),
+    wait_exponential_multiplier=os.environ.get('FIG_API_RETRY_MULTIPLIER', 500),
     retry_on_exception=retry_on_api_error)
 
 
@@ -161,15 +161,18 @@ class Container(object):
     def start(self, **options):
         return self.client.start(self.id, **options)
 
+    @api_retry
     def stop(self, **options):
         return self.client.stop(self.id, **options)
 
+    @api_retry
     def kill(self, **options):
         return self.client.kill(self.id, **options)
 
     def restart(self):
         return self.client.restart(self.id)
 
+    @api_retry
     def remove(self, **options):
         return self.client.remove_container(self.id, **options)
 
