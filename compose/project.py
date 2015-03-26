@@ -1,7 +1,7 @@
 from __future__ import unicode_literals
 from __future__ import absolute_import
-from functools import reduce
 import logging
+from six.moves import reduce
 
 from docker.errors import APIError
 
