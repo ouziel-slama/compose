@@ -77,6 +77,8 @@ class TopLevelCommand(Command):
     Options:
       -f, --file FILE           Specify an alternate compose file (default: docker-compose.yml)
       -p, --project-name NAME   Specify an alternate project name (default: directory name)
+      --migrate-to-labels       Run a one-time migration to convert an older
+                                    compose project to use labels
       --verbose                 Show more output
       -v, --version             Print version and exit
 
