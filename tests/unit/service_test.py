@@ -7,7 +7,7 @@ import mock
 import docker
 from requests import Response
 
-from compose import Service
+from compose.service import Service
 from compose.container import Container
 from compose.const import SERVICE_LABEL, PROJECT_LABEL, ONE_OFF_LABEL
 from compose.service import (

@@ -10,12 +10,14 @@ import six
 from docker.errors import APIError
 from docker.utils import create_host_config, LogConfig
 
+from . import __version__
 from .config import DOCKER_CONFIG_KEYS
 from .const import (
     CONTAINER_NUMBER_LABEL,
     ONE_OFF_LABEL,
     PROJECT_LABEL,
     SERVICE_LABEL,
+    VERSION_LABEL,
 )
 from .container import Container
 from .progress_stream import stream_output, StreamOutputError
@@ -553,6 +555,7 @@ def build_container_labels(label_options, service_labels, number, one_off=False)
     labels = label_options or {}
     labels.update(label.split('=', 1) for label in service_labels)
     labels[CONTAINER_NUMBER_LABEL] = str(number)
+    labels[VERSION_LABEL] = __version__
     return labels
 
 
