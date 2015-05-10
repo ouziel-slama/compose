@@ -297,7 +297,14 @@ class ServiceTest(unittest.TestCase):
         service.build = mock.create_autospec(service.build)
         service.create_container(do_build=True)
 
-        self.mock_client.images.assert_called_once_with(name=service.full_name)
+        self.mock_client.images.assert_called_once_with(
+            filters={
+                'label': [
+                   '%s=%s' % (PROJECT_LABEL, 'default'),
+                    '%s=%s' % (SERVICE_LABEL, 'foo'),
+                ]
+            }
+        )
         service.build.assert_called_once_with()
 
     def test_create_container_no_build(self):

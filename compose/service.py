@@ -198,9 +198,7 @@ class Service(object):
             one_off=one_off,
         )
 
-        if (do_build and
-                self.can_be_built() and
-                not self.client.images(name=self.full_name)):
+        if do_build and self.can_be_built() and not self.image_exists():
             self.build()
 
         try:
@@ -417,7 +415,7 @@ class Service(object):
                 for v in container_options['volumes'])
 
         if self.can_be_built():
-            container_options['image'] = self.full_name
+            container_options['image'] = self.image_name
 
         container_options['labels'] = build_container_labels(
             container_options.get('labels', {}),
@@ -483,15 +481,17 @@ class Service(object):
     def build(self, no_cache=False):
         log.info('Building %s...' % self.name)
 
-        path = six.binary_type(self.options['build'])
-
         build_output = self.client.build(
-            path=path,
-            tag=self.full_name,
+            path=six.binary_type(self.options['build']),
+            tag=self.image_name,
             stream=True,
             rm=True,
             nocache=no_cache,
             dockerfile=self.options.get('dockerfile', None),
+            labels={
+                PROJECT_LABEL: self.project,
+                SERVICE_LABEL: self.name,
+            },
         )
 
         try:
@@ -521,11 +521,17 @@ class Service(object):
         return 'build' in self.options
 
     @property
-    def full_name(self):
-        """
-        The tag to give to images built for this service.
-        """
+    def image_name(self):
+        """The tag to give to images built for this service."""
         return '%s_%s' % (self.project, self.name)
+
+    def image_exists(self):
+        return self.client.images(filters={
+            'label': [
+                '{0}={1}'.format(PROJECT_LABEL, self.project),
+                '{0}={1}'.format(SERVICE_LABEL, self.name),
+            ],
+        })
 
     def labels(self, one_off=False):
         return [
