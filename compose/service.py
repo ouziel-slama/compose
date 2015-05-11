@@ -17,13 +17,12 @@ from .progress_stream import stream_output, StreamOutputError
 log = logging.getLogger(__name__)
 
 
-DOCKER_START_KEYS = [
+DOCKER_HOST_CONFIG_KEYS = [
     'cap_add',
     'cap_drop',
     'devices',
     'dns',
     'dns_search',
-    'env_file',
     'extra_hosts',
     'read_only',
     'net',
@@ -404,8 +403,8 @@ class Service(object):
         if self.can_be_built():
             container_options['image'] = self.full_name
 
-        # Delete options which are only used when starting
-        for key in DOCKER_START_KEYS:
+        # Delete options which are only pass as the host config
+        for key in DOCKER_HOST_CONFIG_KEYS :
             container_options.pop(key, None)
 
         container_options['host_config'] = self._get_container_host_config(
@@ -416,52 +415,22 @@ class Service(object):
 
     def _get_container_host_config(self, override_options, one_off=False):
         options = dict(self.options, **override_options)
-        port_bindings = build_port_bindings(options.get('ports') or [])
-
-        volume_bindings = dict(
-            build_volume_binding(parse_volume_spec(volume))
-            for volume in options.get('volumes') or []
-            if ':' in volume)
-
-        privileged = options.get('privileged', False)
-        cap_add = options.get('cap_add', None)
-        cap_drop = options.get('cap_drop', None)
-        log_config = LogConfig(type=options.get('log_driver', 'json-file'))
-        pid = options.get('pid', None)
-
-        dns = options.get('dns', None)
-        if isinstance(dns, six.string_types):
-            dns = [dns]
-
-        dns_search = options.get('dns_search', None)
-        if isinstance(dns_search, six.string_types):
-            dns_search = [dns_search]
-
-        restart = parse_restart_spec(options.get('restart', None))
-
-        extra_hosts = build_extra_hosts(options.get('extra_hosts', None))
-        read_only = options.get('read_only', None)
-
-        devices = options.get('devices', None)
-
-        return create_host_config(
+        host_config = dict(
+            extra_hosts=build_extra_hosts(options.pop('extra_hosts', None)),
+            log_config=LogConfig(type=options.pop('log_driver', 'json-file')),
+            pid_mode=options.pop('pid', None),
+            port_bindings=build_port_bindings(options.get('ports') or []),
+            restart_policy=parse_restart_spec(options.pop('restart', None)),
+            binds=build_volume_bindings(options.pop('volumes', None) or []),
             links=self._get_links(link_to_self=one_off),
-            port_bindings=port_bindings,
-            binds=volume_bindings,
-            volumes_from=options.get('volumes_from'),
-            privileged=privileged,
             network_mode=self._get_net(),
-            devices=devices,
-            dns=dns,
-            dns_search=dns_search,
-            restart_policy=restart,
-            cap_add=cap_add,
-            cap_drop=cap_drop,
-            log_config=log_config,
-            extra_hosts=extra_hosts,
-            read_only=read_only,
-            pid_mode=pid
         )
+
+        for option in DOCKER_HOST_CONFIG_KEYS :
+            if option not in host_config and option in options:
+                host_config[option] = options.get(option)
+
+        return create_host_config(**host_config)
 
     def build(self, no_cache=False):
         log.info('Building %s...' % self.name)
@@ -474,7 +443,7 @@ class Service(object):
             stream=True,
             rm=True,
             nocache=no_cache,
-            dockerfile=self.options.get('dockerfile', None),
+            dockerfile=self.options.get('dockerfile'),
         )
 
         try:
@@ -593,6 +562,13 @@ def parse_repository_tag(s):
     if "/" in tag:
         return s, ""
     return repo, tag
+
+
+def build_volume_bindings(volumes_option):
+    return dict(
+        build_volume_binding(parse_volume_spec(volume))
+        for volume in volumes_option
+        if ':' in volume)
 
 
 def build_volume_binding(volume_spec):

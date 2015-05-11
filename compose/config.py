@@ -15,7 +15,6 @@ DOCKER_CONFIG_KEYS = [
     'dns_search',
     'domainname',
     'entrypoint',
-    'env_file',
     'environment',
     'extra_hosts',
     'read_only',
@@ -41,6 +40,7 @@ DOCKER_CONFIG_KEYS = [
 ALLOWED_KEYS = DOCKER_CONFIG_KEYS + [
     'build',
     'dockerfile',
+    'env_file',
     'expose',
     'external_links',
     'name',
@@ -194,28 +194,11 @@ def process_container_options(service_dict, working_dir=None):
 
 
 def merge_service_dicts(base, override):
-    d = base.copy()
+    d = dict(base)
 
-    if 'environment' in base or 'environment' in override:
-        d['environment'] = merge_environment(
-            base.get('environment'),
-            override.get('environment'),
-        )
-
-    path_mapping_keys = ['volumes', 'devices']
-
-    for key in path_mapping_keys:
+    for key, (parse, finalize) in six.iteritems(merge_keys):
         if key in base or key in override:
-            d[key] = merge_path_mappings(
-                base.get(key),
-                override.get(key),
-            )
-
-    if 'labels' in base or 'labels' in override:
-        d['labels'] = merge_labels(
-            base.get('labels'),
-            override.get('labels'),
-        )
+            d[key] = merge(base.get(key), override.get(key), parse, finalize)
 
     if 'image' in override and 'build' in d:
         del d['build']
@@ -223,19 +206,15 @@ def merge_service_dicts(base, override):
     if 'build' in override and 'image' in d:
         del d['image']
 
-    list_keys = ['ports', 'expose', 'external_links']
-
     for key in list_keys:
         if key in base or key in override:
             d[key] = base.get(key, []) + override.get(key, [])
-
-    list_or_string_keys = ['dns', 'dns_search']
 
     for key in list_or_string_keys:
         if key in base or key in override:
             d[key] = to_list(base.get(key)) + to_list(override.get(key))
 
-    already_merged_keys = ['environment', 'labels'] + path_mapping_keys + list_keys + list_or_string_keys
+    already_merged_keys = merge_keys.keys() + list_keys + list_or_string_keys
 
     for k in set(ALLOWED_KEYS) - set(already_merged_keys):
         if k in override:
@@ -244,22 +223,12 @@ def merge_service_dicts(base, override):
     return d
 
 
+def merge(base, override, parse, finalize):
+    return finalize(dict(parse(base), **parse(override)))
+
+
 def merge_environment(base, override):
-    env = parse_environment(base)
-    env.update(parse_environment(override))
-    return env
-
-
-def parse_links(links):
-    return dict(parse_link(l) for l in links)
-
-
-def parse_link(link):
-    if ':' in link:
-        source, alias = link.split(':', 1)
-        return (alias, source)
-    else:
-        return (link, link)
+    return merge(base, override, parse_environment, dict)
 
 
 def get_env_files(options, working_dir=None):
@@ -373,12 +342,6 @@ def validate_paths(service_dict):
             raise ConfigurationError("build path %s either does not exist or is not accessible." % build_path)
 
 
-def merge_path_mappings(base, override):
-    d = dict_from_path_mappings(base)
-    d.update(dict_from_path_mappings(override))
-    return path_mappings_from_dict(d)
-
-
 def dict_from_path_mappings(path_mappings):
     if path_mappings:
         return dict(split_path_mapping(v) for v in path_mappings)
@@ -404,12 +367,6 @@ def join_path_mapping(pair):
         return container
     else:
         return ":".join((host, container))
-
-
-def merge_labels(base, override):
-    labels = parse_labels(base)
-    labels.update(parse_labels(override))
-    return labels
 
 
 def parse_labels(labels):
@@ -465,6 +422,20 @@ def load_yaml(filename):
             return yaml.safe_load(fh)
     except IOError as e:
         raise ConfigurationError(six.text_type(e))
+
+
+list_keys = ['ports', 'expose', 'external_links']
+
+
+list_or_string_keys = ['dns', 'dns_search']
+
+
+merge_keys = {
+    'devices': (dict_from_path_mappings, path_mappings_from_dict),
+    'environment': (parse_environment, dict),
+    'labels': (parse_labels, dict),
+    'volumes': (dict_from_path_mappings, path_mappings_from_dict),
+}
 
 
 class ConfigurationError(Exception):
