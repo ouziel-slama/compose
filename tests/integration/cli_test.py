@@ -352,13 +352,15 @@ class CLITestCase(DockerClientTestCase):
     def test_kill(self):
         self.command.dispatch(['up', '-d'], None)
         service = self.project.get_service('simple')
-        self.assertEqual(len(service.containers()), 1)
-        self.assertTrue(service.containers()[0].is_running)
+        containers = service.containers()
+        self.assertEqual(len(containers), 1)
+        self.assertTrue(containers[0].is_running)
 
         self.command.dispatch(['kill'], None)
-
-        self.assertEqual(len(service.containers(stopped=True)), 1)
-        self.assertFalse(service.containers(stopped=True)[0].is_running)
+        containers = service.containers(stopped=True)
+        container = containers[0]
+        self.assertFalse(container.is_running)
+        self.assertEqual(container.get('State.ExitCode'), 0)
 
     def test_kill_signal_sigstop(self):
         self.command.dispatch(['up', '-d'], None)
@@ -368,20 +370,10 @@ class CLITestCase(DockerClientTestCase):
 
         self.command.dispatch(['kill', '-s', 'SIGSTOP'], None)
 
-        self.assertEqual(len(service.containers()), 1)
-        # The container is still running. It has only been paused
-        self.assertTrue(service.containers()[0].is_running)
-
-    def test_kill_stopped_service(self):
-        self.command.dispatch(['up', '-d'], None)
-        service = self.project.get_service('simple')
-        self.command.dispatch(['kill', '-s', 'SIGSTOP'], None)
-        self.assertTrue(service.containers()[0].is_running)
-
-        self.command.dispatch(['kill', '-s', 'SIGKILL'], None)
-
-        self.assertEqual(len(service.containers(stopped=True)), 1)
-        self.assertFalse(service.containers(stopped=True)[0].is_running)
+        containers = service.containers(stopped=True)
+        container = containers[0]
+        self.assertFalse(container.is_running)
+        self.assertEqual(container.get('State.ExitCode'), 0)
 
     def test_restart(self):
         service = self.project.get_service('simple')
