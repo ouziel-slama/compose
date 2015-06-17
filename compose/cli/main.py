@@ -289,6 +289,8 @@ class TopLevelCommand(Command):
             --rm                  Remove container after run. Ignored in detached mode.
             --service-ports       Run command with the service's ports enabled and mapped
                                   to the host.
+            --not-one-off         Run the container as part of the composition,
+                                  not as a one-off container.
             -T                    Disable pseudo-tty allocation. By default `docker-compose run`
                                   allocates a TTY.
         """
@@ -340,7 +342,7 @@ class TopLevelCommand(Command):
 
         container = service.create_container(
             quiet=True,
-            one_off=True,
+            one_off=not options['--not-one-off'],
             insecure_registry=insecure_registry,
             **container_options
         )
