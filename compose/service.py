@@ -3,6 +3,7 @@ from __future__ import absolute_import
 
 from collections import namedtuple
 import logging
+import os
 import re
 import sys
 from operator import attrgetter
@@ -396,7 +397,7 @@ class Service(object):
             all_containers=containers,
         )
         return [self.start_container(new_container, service_only_links=True)]
-    
+
     def start_container(self, container):
         container.start()
         return container
@@ -508,7 +509,6 @@ class Service(object):
             net = self.net
 
         return net
-
 
     def _get_container_create_options(
             self,

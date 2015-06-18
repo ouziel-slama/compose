@@ -9,17 +9,12 @@ from operator import (
 )
 
 from docker.errors import APIError
-import six
 
-from . import includes
 from .config import get_service_name_from_net, ConfigurationError
 from .const import LABEL_PROJECT, LABEL_SERVICE, LABEL_ONE_OFF, DEFAULT_TIMEOUT
 from .container import Container
 from .legacy import check_for_legacy_containers
-from .service import (
-    Service,
-    ServiceLink,
-)
+from .service import Service
 
 log = logging.getLogger(__name__)
 

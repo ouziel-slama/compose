@@ -8,12 +8,9 @@ from compose.service import (
     Service,
     ServiceLink,
 )
-from compose.project import Project
+from compose.project import Project, NoSuchService
 from compose.container import Container
 from compose import config
-
-import mock
-import docker
 
 
 class ProjectTest(unittest.TestCase):
@@ -77,7 +74,7 @@ class ProjectTest(unittest.TestCase):
         mock_client = mock.create_autospec(docker.Client)
         services = [
             {'name': 'web', 'image': 'busybox:latest', 'links': ['db']},
-            {'name': 'db',  'image': 'busybox:latest'},
+            {'name': 'db', 'image': 'busybox:latest'},
         ]
         project = Project.from_dicts('test', services, mock_client, None, None)
         containers = project.up(do_build=False, fresh_start=True)

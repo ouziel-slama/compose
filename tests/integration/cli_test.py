@@ -1,9 +1,7 @@
 from __future__ import absolute_import
-import contextlib
 import os
 from operator import attrgetter
 import sys
-import os
 import shlex
 
 from mock import patch
@@ -573,6 +571,7 @@ class CLITestCase(DockerClientTestCase):
         ])
         self.assertTrue(expected_env <= set(web.get('Config.Env')))
 
+
 # TODO: remove
 def assert_has_links_and_volumes(
         project,
@@ -587,4 +586,3 @@ def assert_has_links_and_volumes(
 
     if expected_volumes is not None:
         assert expected_volumes == container.get('Volumes').keys()
-
