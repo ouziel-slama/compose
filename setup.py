@@ -34,7 +34,6 @@ install_requires = [
     'dockerpty >= 0.3.4, < 0.4',
     'retrying >= 1.2',
     'six >= 1.3.0, < 2',
-    'pytimeparse >= 1.1.2',
 ]
 
 
