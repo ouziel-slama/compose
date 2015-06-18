@@ -1,5 +1,17 @@
-#!/bin/sh
+#!/bin/bash
+# See CONTRIBUTING.md for usage.
+
 set -ex
-docker build -t fig .
-docker run -v /var/run/docker.sock:/var/run/docker.sock --rm --entrypoint flake8 fig fig
-docker run -v /var/run/docker.sock:/var/run/docker.sock --rm --entrypoint nosetests fig $@
+
+TAG="docker-compose:$(git rev-parse --short HEAD)"
+
+docker build -t "$TAG" .
+docker run \
+  --rm \
+  --volume="/var/run/docker.sock:/var/run/docker.sock" \
+  -e DOCKER_VERSIONS \
+  -e "TAG=$TAG" \
+  -e "affinity:image==$TAG" \
+  --entrypoint="script/test-versions" \
+  "$TAG" \
+  "$@"

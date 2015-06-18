@@ -1,46 +1,52 @@
-Fig
-===
+Docker Compose
+==============
+*(Previously known as Fig)*
 
-[![wercker status](https://app.wercker.com/status/d5dbac3907301c3d5ce735e2d5e95a5b/s/master "wercker status")](https://app.wercker.com/project/bykey/d5dbac3907301c3d5ce735e2d5e95a5b)
+Compose is a tool for defining and running multi-container applications with
+Docker. With Compose, you define a multi-container application in a single
+file, then spin your application up in a single command which does everything
+that needs to be done to get it running.
 
-Fast, isolated development environments using Docker.
+Compose is great for development environments, staging servers, and CI. We don't
+recommend that you use it in production yet.
 
-Define your app's environment with Docker so it can be reproduced anywhere:
+Using Compose is basically a three-step process.
 
-    FROM python:2.7
-    ADD . /code
-    WORKDIR /code
-    RUN pip install -r requirements.txt
-    CMD python app.py
+1. Define your app's environment with a `Dockerfile` so it can be
+reproduced anywhere.
+2. Define the services that make up your app in `docker-compose.yml` so
+they can be run together in an isolated environment:
+3. Lastly, run `docker-compose up` and Compose will start and run your entire app.
 
-Define the services that make up your app so they can be run together in an isolated environment:
+A `docker-compose.yml` looks like this:
 
-```yaml
-web:
-  build: .
-  links:
-   - db
-  ports:
-   - "8000:8000"
-   - "49100:22"
-db:
-  image: postgres
-```
+    web:
+      build: .
+      ports:
+       - "5000:5000"
+      volumes:
+       - .:/code
+      links:
+       - redis
+    redis:
+      image: redis
 
-(No more installing Postgres on your laptop!)
+Compose has commands for managing the whole lifecycle of your application:
 
-Then type `fig up`, and Fig will start and run your entire app:
-
-![example fig run](https://orchardup.com/static/images/fig-example-large.gif)
-
-There are commands to:
-
- - start, stop and rebuild services
- - view the status of running services
- - tail running services' log output
- - run a one-off command on a service
+ * Start, stop and rebuild services
+ * View the status of running services
+ * Stream the log output of running services
+ * Run a one-off command on a service
 
 Installation and documentation
 ------------------------------
 
-Full documentation is available on [Fig's website](http://www.fig.sh/).
+- Full documentation is available on [Docker's website](http://docs.docker.com/compose/).
+- If you have any questions, you can talk in real-time with other developers in the #docker-compose IRC channel on Freenode. [Click here to join using IRCCloud.](https://www.irccloud.com/invite?hostname=irc.freenode.net&channel=%23docker-compose)
+
+Contributing
+------------
+
+[![Build Status](http://jenkins.dockerproject.org/buildStatus/icon?job=Compose%20Master)](http://jenkins.dockerproject.org/job/Compose%20Master/)
+
+Want to help build Compose? Check out our [contributing documentation](https://github.com/docker/compose/blob/master/CONTRIBUTING.md).

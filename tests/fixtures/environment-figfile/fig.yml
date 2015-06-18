@@ -1,7 +1,0 @@
-service:
-  image: busybox:latest
-  command: sleep 5
-
-  environment:
-    foo: bar
-    hello: world

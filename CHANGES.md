@@ -1,6 +1,62 @@
 Change log
 ==========
 
+1.2.0 (2015-04-16)
+------------------
+
+- `docker-compose.yml` now supports an `extends` option, which enables a service to inherit configuration from another service in another configuration file. This is really good for sharing common configuration between apps, or for configuring the same app for different environments. Here's the [documentation](https://github.com/docker/compose/blob/master/docs/yml.md#extends).
+
+- When using Compose with a Swarm cluster, containers that depend on one another will be co-scheduled on the same node. This means that most Compose apps will now work out of the box, as long as they don't use `build`.
+
+- Repeated invocations of `docker-compose up` when using Compose with a Swarm cluster now work reliably.
+
+- Directories passed to `build`, filenames passed to `env_file` and volume host paths passed to `volumes` are now treated as relative to the *directory of the configuration file*, not the directory that `docker-compose` is being run in. In the majority of cases, those are the same, but if you use the `-f|--file` argument to specify a configuration file in another directory, **this is a breaking change**.
+
+- A service can now share another service's network namespace with `net: container:<service>`.
+
+- `volumes_from` and `net: container:<service>` entries are taken into account when resolving dependencies, so `docker-compose up <service>` will correctly start all dependencies of `<service>`.
+
+- `docker-compose run` now accepts a `--user` argument to specify a user to run the command as, just like `docker run`.
+
+- The `up`, `stop` and `restart` commands now accept a `--timeout` (or `-t`) argument to specify how long to wait when attempting to gracefully stop containers, just like `docker stop`.
+
+- `docker-compose rm` now accepts `-f` as a shorthand for `--force`, just like `docker rm`.
+
+Thanks, @abesto, @albers, @alunduil, @dnephin, @funkyfuture, @gilclark, @IanVS, @KingsleyKelly, @knutwalker, @thaJeztah and @vmalloc!
+
+1.1.0 (2015-02-25)
+------------------
+
+Fig has been renamed to Docker Compose, or just Compose for short. This has several implications for you:
+
+- The command you type is now `docker-compose`, not `fig`.
+- You should rename your fig.yml to docker-compose.yml.
+- If you’re installing via PyPi, the package is now `docker-compose`, so install it with `pip install docker-compose`.
+
+Besides that, there’s a lot of new stuff in this release:
+
+- We’ve made a few small changes to ensure that Compose will work with Swarm, Docker’s new clustering tool (https://github.com/docker/swarm). Eventually you'll be able to point Compose at a Swarm cluster instead of a standalone Docker host and it’ll run your containers on the cluster with no extra work from you. As Swarm is still developing, integration is rough and lots of Compose features don't work yet.
+
+- `docker-compose run` now has a `--service-ports` flag for exposing ports on the given service. This is useful for e.g. running your webapp with an interactive debugger.
+
+- You can now link to containers outside your app with the `external_links` option in docker-compose.yml.
+
+- You can now prevent `docker-compose up` from automatically building images with the `--no-build` option. This will make fewer API calls and run faster.
+
+- If you don’t specify a tag when using the `image` key, Compose will default to the `latest` tag, rather than pulling all tags.
+
+- `docker-compose kill` now supports the `-s` flag, allowing you to specify the exact signal you want to send to a service’s containers.
+
+- docker-compose.yml now has an `env_file` key, analogous to `docker run --env-file`, letting you specify multiple environment variables in a separate file. This is great if you have a lot of them, or if you want to keep sensitive information out of version control.
+
+- docker-compose.yml now supports the `dns_search`, `cap_add`, `cap_drop`, `cpu_shares` and `restart` options, analogous to `docker run`’s `--dns-search`, `--cap-add`, `--cap-drop`, `--cpu-shares` and `--restart` options.
+
+- Compose now ships with Bash tab completion - see the installation and usage docs at https://github.com/docker/compose/blob/1.1.0/docs/completion.md
+
+- A number of bugs have been fixed - see the milestone for details: https://github.com/docker/compose/issues?q=milestone%3A1.1.0+
+
+Thanks @dnephin, @squebe, @jbalonso, @raulcd, @benlangfield, @albers, @ggtools, @bersace, @dtenenba, @petercv, @drewkett, @TFenby, @paulRbr, @Aigeruth and @salehe!
+
 1.0.1 (2014-11-04)
 ------------------
 

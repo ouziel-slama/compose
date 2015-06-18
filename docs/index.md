@@ -1,58 +1,83 @@
----
-layout: default
-title: Fig | Fast, isolated development environments using Docker
----
+<!--[metadata]>
++++
+title = "Overview of Docker Compose"
+description = "Introduction and Overview of Compose"
+keywords = ["documentation, docs,  docker, compose, orchestration,  containers"]
+[menu.main]
+parent="smn_workw_compose"
++++
+<![end-metadata]-->
 
-<strong class="strapline">Fast, isolated development environments using Docker.</strong>
 
-Define your app's environment with a `Dockerfile` so it can be reproduced anywhere:
+# Overview of Docker Compose
 
-    FROM python:2.7
-    ADD . /code
-    WORKDIR /code
-    RUN pip install -r requirements.txt
+Compose is a tool for defining and running multi-container applications with
+Docker. With Compose, you define a multi-container application in a single
+file, then spin your application up in a single command which does everything
+that needs to be done to get it running.
 
-Define the services that make up your app in `fig.yml` so they can be run together in an isolated environment:
+Compose is great for development environments, staging servers, and CI. We don't
+recommend that you use it in production yet.
+
+Using Compose is basically a three-step process.
+
+1. Define your app's environment with a `Dockerfile` so it can be
+reproduced anywhere.
+2. Define the services that make up your app in `docker-compose.yml` so
+they can be run together in an isolated environment:
+3. Lastly, run `docker-compose up` and Compose will start and run your entire app.
+
+A `docker-compose.yml` looks like this:
 
 ```yaml
 web:
   build: .
-  command: python app.py
-  links:
-   - db
   ports:
-   - "8000:8000"
-db:
-  image: postgres
+   - "5000:5000"
+  volumes:
+   - .:/code
+  links:
+   - redis
+redis:
+  image: redis
 ```
 
-(No more installing Postgres on your laptop!)
+Compose has commands for managing the whole lifecycle of your application:
 
-Then type `fig up`, and Fig will start and run your entire app:
+ * Start, stop and rebuild services
+ * View the status of running services
+ * Stream the log output of running services
+ * Run a one-off command on a service
 
-![example fig run](https://orchardup.com/static/images/fig-example-large.gif)
+## Compose documentation
 
-There are commands to:
+- [Installing Compose](install.md)
+- [Get started with Django](django.md)
+- [Get started with Rails](rails.md)
+- [Get started with Wordpress](wordpress.md)
+- [Command line reference](cli.md)
+- [Yaml file reference](yml.md)
+- [Compose environment variables](env.md)
+- [Compose command line completion](completion.md)
 
- - start, stop and rebuild services
- - view the status of running services
- - tail running services' log output
- - run a one-off command on a service
+## Quick start
 
+Let's get started with a walkthrough of getting a simple Python web app running
+on Compose. It assumes a little knowledge of Python, but the concepts
+demonstrated here should be understandable even if you're not familiar with
+Python.
 
-Quick start
------------
+### Installation and set-up
 
-Let's get a basic Python web app running on Fig. It assumes a little knowledge of Python, but the concepts should be clear if you're not familiar with it.
+First, [install Docker and Compose](install.md).
 
-First, [install Docker and Fig](install.html).
+Next, you'll want to make a directory for the project:
 
-You'll want to make a directory for the project:
+    $ mkdir composetest
+    $ cd composetest
 
-    $ mkdir figtest
-    $ cd figtest
-
-Inside this directory, create `app.py`, a simple web app that uses the Flask framework and increments a value in Redis:
+Inside this directory, create `app.py`, a simple web app that uses the Flask
+framework and increments a value in Redis:
 
 ```python
 from flask import Flask
@@ -70,25 +95,41 @@ if __name__ == "__main__":
     app.run(host="0.0.0.0", debug=True)
 ```
 
-We define our Python dependencies in a file called `requirements.txt`:
+Next, define the Python dependencies in a file called `requirements.txt`:
 
     flask
     redis
 
-Next, we want to create a Docker image containing all of our app's dependencies. We specify how to build one using a file called `Dockerfile`:
+### Create a Docker image
+
+Now, create a Docker image containing all of your app's dependencies. You
+specify how to build the image using a file called
+[`Dockerfile`](http://docs.docker.com/reference/builder/):
 
     FROM python:2.7
     ADD . /code
     WORKDIR /code
     RUN pip install -r requirements.txt
+    CMD python app.py
 
-This tells Docker to install Python, our code and our Python dependencies inside a Docker image. For more information on how to write Dockerfiles, see the [Docker user guide](https://docs.docker.com/userguide/dockerimages/#building-an-image-from-a-dockerfile) and the [Dockerfile reference](http://docs.docker.com/reference/builder/).
+This tells Docker to:
 
-We then define a set of services using `fig.yml`:
+* Build an image starting with the Python 2.7 image.
+* Add the current directory `.` into the path `/code` in the image.
+* Set the working directory to `/code`.
+* Install your Python dependencies.
+* Set the default command for the container to `python app.py`
+
+For more information on how to write Dockerfiles, see the [Docker user guide](https://docs.docker.com/userguide/dockerimages/#building-an-image-from-a-dockerfile) and the [Dockerfile reference](http://docs.docker.com/reference/builder/).
+
+You can test that this builds by running `docker build -t web .`.
+
+### Define services
+
+Next, define a set of services using `docker-compose.yml`:
 
     web:
       build: .
-      command: python app.py
       ports:
        - "5000:5000"
       volumes:
@@ -100,41 +141,94 @@ We then define a set of services using `fig.yml`:
 
 This defines two services:
 
- - `web`, which is built from `Dockerfile` in the current directory. It also says to run the command `python app.py` inside the image, forward the exposed port 5000 on the container to port 5000 on the host machine, connect up the Redis service, and mount the current directory inside the container so we can work on code without having to rebuild the image.
- - `redis`, which uses the public image [redis](https://registry.hub.docker.com/_/redis/). 
+#### web
 
-Now if we run `fig up`, it'll pull a Redis image, build an image for our own code, and start everything up:
+* Builds from the `Dockerfile` in the current directory.
+* Forwards the exposed port 5000 on the container to port 5000 on the host machine.
+* Connects the web container to the Redis service via a link.
+* Mounts the current directory on the host to `/code` inside the container allowing you to modify the code without having to rebuild the image.
 
-    $ fig up
+#### redis
+
+* Uses the public [Redis](https://registry.hub.docker.com/_/redis/) image which gets pulled from the Docker Hub registry.
+
+### Build and run your app with Compose
+
+Now, when you run `docker-compose up`, Compose will pull a Redis image, build an image for your code, and start everything up:
+
+    $ docker-compose up
     Pulling image redis...
     Building web...
-    Starting figtest_redis_1...
-    Starting figtest_web_1...
+    Starting composetest_redis_1...
+    Starting composetest_web_1...
     redis_1 | [8] 02 Jan 18:43:35.576 # Server started, Redis version 2.8.3
     web_1   |  * Running on http://0.0.0.0:5000/
 
-The web app should now be listening on port 5000 on your docker daemon (if you're using boot2docker, `boot2docker ip` will tell you its address).
+The web app should now be listening on port 5000 on your Docker daemon host (if
+you're using Boot2docker, `boot2docker ip` will tell you its address). In a browser,
+open `http://ip-from-boot2docker:5000` and you should get a message in your browser saying:
 
-If you want to run your services in the background, you can pass the `-d` flag to `fig up` and use `fig ps` to see what is currently running:
+`Hello World! I have been seen 1 times.`
 
-    $ fig up -d
-    Starting figtest_redis_1...
-    Starting figtest_web_1...
-    $ fig ps
-            Name                 Command            State       Ports
+Refreshing the page will increment the number.
+
+If you want to run your services in the background, you can pass the `-d` flag
+(for daemon mode) to `docker-compose up` and use `docker-compose ps` to see what
+is currently running:
+
+    $ docker-compose up -d
+    Starting composetest_redis_1...
+    Starting composetest_web_1...
+    $ docker-compose ps
+	    Name                 Command            State       Ports
     -------------------------------------------------------------------
-    figtest_redis_1   /usr/local/bin/run         Up
-    figtest_web_1     /bin/sh -c python app.py   Up      5000->5000/tcp
+    composetest_redis_1   /usr/local/bin/run         Up
+    composetest_web_1     /bin/sh -c python app.py   Up      5000->5000/tcp
 
-`fig run` allows you to run one-off commands for your services. For example, to see what environment variables are available to the `web` service:
+The `docker-compose run` command allows you to run one-off commands for your
+services. For example, to see what environment variables are available to the
+`web` service:
 
-    $ fig run web env
+    $ docker-compose run web env
 
+See `docker-compose --help` to see other available commands.
 
-See `fig --help` other commands that are available.
+If you started Compose with `docker-compose up -d`, you'll probably want to stop
+your services once you've finished with them:
 
-If you started Fig with `fig up -d`, you'll probably want to stop your services once you've finished with them:
+    $ docker-compose stop
 
-    $ fig stop
+At this point, you have seen the basics of how Compose works.
 
-That's more-or-less how Fig works. See the reference section below for full details on the commands, configuration file and environment variables. If you have any thoughts or suggestions, [open an issue on GitHub](https://github.com/docker/fig).
+- Next, try the quick start guide for [Django](django.md),
+  [Rails](rails.md), or [Wordpress](wordpress.md).
+- See the reference guides for complete details on the [commands](cli.md), the
+  [configuration file](yml.md) and [environment variables](env.md).
+
+## Release Notes
+
+### Version 1.2.0 (April 7, 2015)
+
+For complete information on this release, see the [1.2.0 Milestone project page](https://github.com/docker/compose/wiki/1.2.0-Milestone-Project-Page).
+In addition to bug fixes and refinements, this release adds the following:
+
+* The `extends` keyword, which adds the ability to extend services by sharing  common configurations. For details, see
+[PR #1088](https://github.com/docker/compose/pull/1088).
+
+* Better integration with Swarm. Swarm will now schedule inter-dependent
+containers on the same host. For details, see
+[PR #972](https://github.com/docker/compose/pull/972).
+
+## Getting help
+
+Docker Compose is still in its infancy and under active development. If you need
+help, would like to contribute, or simply want to talk about the project with
+like-minded individuals, we have a number of open channels for communication.
+
+* To report bugs or file feature requests: please use the [issue tracker on Github](https://github.com/docker/compose/issues).
+
+* To talk about the project with people in real time: please join the `#docker-compose` channel on IRC.
+
+* To contribute code or documentation changes: please submit a [pull request on Github](https://github.com/docker/compose/pulls).
+
+For more information and resources, please visit the [Getting Help project page](https://docs.docker.com/project/get-help/).

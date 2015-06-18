@@ -27,15 +27,16 @@ def find_version(*file_paths):
 install_requires = [
     'docopt >= 0.6.1, < 0.7',
     'PyYAML >= 3.10, < 4',
-    'requests >= 2.2.1, < 3',
+    'requests >= 2.6.1, < 2.7',
     'texttable >= 0.8.1, < 0.9',
-    'websocket-client >= 0.11.0, < 0.12',
-    'docker-py >= 0.6.0, < 0.7',
-    'dockerpty >= 0.3.2, < 0.4',
+    'websocket-client >= 0.11.0, < 1.0',
+    'docker-py >= 1.2.3, < 1.3',
+    'dockerpty >= 0.3.4, < 0.4',
     'retrying >= 1.2',
     'six >= 1.3.0, < 2',
     'pytimeparse >= 1.1.2',
 ]
+
 
 tests_require = [
     'mock >= 1.0.1',
@@ -50,19 +51,19 @@ if sys.version_info < (2, 7):
 
 
 setup(
-    name='fig',
-    version=find_version("fig", "__init__.py"),
-    description='Fast, isolated development environments using Docker',
-    url='http://www.fig.sh/',
+    name='docker-compose',
+    version=find_version("compose", "__init__.py"),
+    description='Multi-container orchestration for Docker',
+    url='https://www.docker.com/',
     author='Docker, Inc.',
     license='Apache License 2.0',
-    packages=find_packages(exclude=[ 'tests.*', 'tests' ]),
+    packages=find_packages(exclude=['tests.*', 'tests']),
     include_package_data=True,
     test_suite='nose.collector',
     install_requires=install_requires,
     tests_require=tests_require,
     entry_points="""
     [console_scripts]
-    fig=fig.cli.main:main
+    docker-compose=compose.cli.main:main
     """,
 )

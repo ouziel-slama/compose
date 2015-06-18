@@ -1,25 +1,51 @@
 from __future__ import unicode_literals
 
-from fig.container import Container
-from fig.project import Project, ConfigurationError
-from fig.service import ServiceLink
+from compose import config
+from compose.const import LABEL_PROJECT
+from compose.project import Project
+from compose.container import Container
+from compose.service import ServiceLink
 from .testcases import DockerClientTestCase
 
 
 class ProjectTest(DockerClientTestCase):
+
+    def test_containers(self):
+        web = self.create_service('web')
+        db = self.create_service('db')
+        project = Project('composetest', [web, db], self.client)
+
+        project.up()
+
+        containers = project.containers()
+        self.assertEqual(len(containers), 2)
+
+    def test_containers_with_service_names(self):
+        web = self.create_service('web')
+        db = self.create_service('db')
+        project = Project('composetest', [web, db], self.client)
+
+        project.up()
+
+        containers = project.containers(['web'])
+        self.assertEqual(
+            [c.name for c in containers],
+            ['composetest_web_1'])
+
     def test_volumes_from_service(self):
-        project = Project.from_config(
-            name='figtest',
-            config={
-                'data': {
-                    'image': 'busybox:latest',
-                    'volumes': ['/var/data'],
-                },
-                'db': {
-                    'image': 'busybox:latest',
-                    'volumes_from': ['data'],
-                },
+        service_dicts = config.from_dictionary({
+            'data': {
+                'image': 'busybox:latest',
+                'volumes': ['/var/data'],
             },
+            'db': {
+                'image': 'busybox:latest',
+                'volumes_from': ['data'],
+            },
+        }, working_dir='.')
+        project = Project.from_dicts(
+            name='composetest',
+            service_dicts=service_dicts,
             client=self.client,
         )
         db = project.get_service('db')
@@ -31,25 +57,75 @@ class ProjectTest(DockerClientTestCase):
             self.client,
             image='busybox:latest',
             volumes=['/var/data'],
-            name='figtest_data_container',
+            name='composetest_data_container',
+            labels={LABEL_PROJECT: 'composetest'},
         )
-        project = Project.from_config(
-            name='figtest',
-            config={
+        project = Project.from_dicts(
+            name='composetest',
+            service_dicts=config.from_dictionary({
                 'db': {
                     'image': 'busybox:latest',
-                    'volumes_from': ['figtest_data_container'],
+                    'volumes_from': ['composetest_data_container'],
                 },
-            },
+            }),
             client=self.client,
         )
         db = project.get_service('db')
         self.assertEqual(db.volumes_from, [data_container])
 
+    def test_net_from_service(self):
+        project = Project.from_dicts(
+            name='composetest',
+            service_dicts=config.from_dictionary({
+                'net': {
+                    'image': 'busybox:latest',
+                    'command': ["top"]
+                },
+                'web': {
+                    'image': 'busybox:latest',
+                    'net': 'container:net',
+                    'command': ["top"]
+                },
+            }),
+            client=self.client,
+        )
+
+        project.up()
+
+        web = project.get_service('web')
+        net = project.get_service('net')
+        self.assertEqual(web._get_net(), 'container:' + net.containers()[0].id)
+
+    def test_net_from_container(self):
+        net_container = Container.create(
+            self.client,
+            image='busybox:latest',
+            name='composetest_net_container',
+            command='top',
+            labels={LABEL_PROJECT: 'composetest'},
+        )
+        net_container.start()
+
+        project = Project.from_dicts(
+            name='composetest',
+            service_dicts=config.from_dictionary({
+                'web': {
+                    'image': 'busybox:latest',
+                    'net': 'container:composetest_net_container'
+                },
+            }),
+            client=self.client,
+        )
+
+        project.up()
+
+        web = project.get_service('web')
+        self.assertEqual(web._get_net(), 'container:' + net_container.id)
+
     def test_start_stop_kill_remove(self):
         web = self.create_service('web')
         db = self.create_service('db')
-        project = Project('figtest', [web, db], self.client)
+        project = Project('composetest', [web, db], self.client)
 
         project.start()
 
@@ -82,7 +158,7 @@ class ProjectTest(DockerClientTestCase):
     def test_project_up(self):
         web = self.create_service('web')
         db = self.create_service('db', volumes=['/var/db'])
-        project = Project('figtest', [web, db], self.client)
+        project = Project('composetest', [web, db], self.client)
         project.start()
         self.assertEqual(len(project.containers()), 0)
 
@@ -91,13 +167,22 @@ class ProjectTest(DockerClientTestCase):
         self.assertEqual(len(db.containers()), 1)
         self.assertEqual(len(web.containers()), 0)
 
-        project.kill()
-        project.remove_stopped()
+    def test_project_up_starts_uncreated_services(self):
+        db = self.create_service('db')
+        web = self.create_service('web', links=[(db, 'db')])
+        project = Project('composetest', [db, web], self.client)
+        project.up(['db'])
+        self.assertEqual(len(project.containers()), 1)
+
+        project.up()
+        self.assertEqual(len(project.containers()), 2)
+        self.assertEqual(len(db.containers()), 1)
+        self.assertEqual(len(web.containers()), 1)
 
     def test_project_up_recreates_containers(self):
         web = self.create_service('web')
         db = self.create_service('db', volumes=['/etc'])
-        project = Project('figtest', [web, db], self.client)
+        project = Project('composetest', [web, db], self.client)
         project.start()
         self.assertEqual(len(project.containers()), 0)
 
@@ -113,13 +198,10 @@ class ProjectTest(DockerClientTestCase):
         self.assertNotEqual(db_container.id, old_db_id)
         self.assertEqual(db_container.get('Volumes./etc'), db_volume_path)
 
-        project.kill()
-        project.remove_stopped()
-
     def test_project_up_with_no_recreate_running(self):
         web = self.create_service('web')
         db = self.create_service('db', volumes=['/var/db'])
-        project = Project('figtest', [web, db], self.client)
+        project = Project('composetest', [web, db], self.client)
         project.start()
         self.assertEqual(len(project.containers()), 0)
 
@@ -128,7 +210,7 @@ class ProjectTest(DockerClientTestCase):
         old_db_id = project.containers()[0].id
         db_volume_path = project.containers()[0].inspect()['Volumes']['/var/db']
 
-        project.up(recreate=False)
+        project.up(allow_recreate=False)
         self.assertEqual(len(project.containers()), 2)
 
         db_container = [c for c in project.containers() if 'db' in c.name][0]
@@ -136,18 +218,15 @@ class ProjectTest(DockerClientTestCase):
         self.assertEqual(db_container.inspect()['Volumes']['/var/db'],
                          db_volume_path)
 
-        project.kill()
-        project.remove_stopped()
-
     def test_project_up_with_no_recreate_stopped(self):
         web = self.create_service('web')
         db = self.create_service('db', volumes=['/var/db'])
-        project = Project('figtest', [web, db], self.client)
+        project = Project('composetest', [web, db], self.client)
         project.start()
         self.assertEqual(len(project.containers()), 0)
 
         project.up(['db'])
-        project.stop()
+        project.kill()
 
         old_containers = project.containers(stopped=True)
 
@@ -155,23 +234,21 @@ class ProjectTest(DockerClientTestCase):
         old_db_id = old_containers[0].id
         db_volume_path = old_containers[0].inspect()['Volumes']['/var/db']
 
-        project.up(recreate=False)
+        project.up(allow_recreate=False)
 
         new_containers = project.containers(stopped=True)
         self.assertEqual(len(new_containers), 2)
+        self.assertEqual([c.is_running for c in new_containers], [True, True])
 
         db_container = [c for c in new_containers if 'db' in c.name][0]
         self.assertEqual(db_container.id, old_db_id)
         self.assertEqual(db_container.inspect()['Volumes']['/var/db'],
                          db_volume_path)
 
-        project.kill()
-        project.remove_stopped()
-
     def test_project_up_without_all_services(self):
         console = self.create_service('console')
         db = self.create_service('db')
-        project = Project('figtest', [console, db], self.client)
+        project = Project('composetest', [console, db], self.client)
         project.start()
         self.assertEqual(len(project.containers()), 0)
 
@@ -180,15 +257,12 @@ class ProjectTest(DockerClientTestCase):
         self.assertEqual(len(db.containers()), 1)
         self.assertEqual(len(console.containers()), 1)
 
-        project.kill()
-        project.remove_stopped()
-
     def test_project_up_starts_links(self):
         console = self.create_service('console')
         db = self.create_service('db', volumes=['/var/db'])
         web = self.create_service('web', links=[ServiceLink(db, 'db')])
 
-        project = Project('figtest', [web, db, console], self.client)
+        project = Project('composetest', [web, db, console], self.client)
         project.start()
         self.assertEqual(len(project.containers()), 0)
 
@@ -198,30 +272,80 @@ class ProjectTest(DockerClientTestCase):
         self.assertEqual(len(db.containers()), 1)
         self.assertEqual(len(console.containers()), 0)
 
-        project.kill()
-        project.remove_stopped()
-
-    def test_project_up_with_no_deps(self):
-        console = self.create_service('console')
-        db = self.create_service('db', volumes=['/var/db'])
-        web = self.create_service('web', links=[(db, 'db')])
-
-        project = Project('figtest', [web, db, console], self.client)
+    def test_project_up_starts_depends(self):
+        project = Project.from_dicts(
+            name='composetest',
+            service_dicts=config.from_dictionary({
+                'console': {
+                    'image': 'busybox:latest',
+                    'command': ["top"],
+                },
+                'data': {
+                    'image': 'busybox:latest',
+                    'command': ["top"]
+                },
+                'db': {
+                    'image': 'busybox:latest',
+                    'command': ["top"],
+                    'volumes_from': ['data'],
+                },
+                'web': {
+                    'image': 'busybox:latest',
+                    'command': ["top"],
+                    'links': ['db'],
+                },
+            }),
+            client=self.client,
+        )
         project.start()
         self.assertEqual(len(project.containers()), 0)
 
-        project.up(['web'], start_links=False)
-        self.assertEqual(len(project.containers()), 1)
-        self.assertEqual(len(web.containers()), 1)
-        self.assertEqual(len(db.containers()), 0)
-        self.assertEqual(len(console.containers()), 0)
+        project.up(['web'])
+        self.assertEqual(len(project.containers()), 3)
+        self.assertEqual(len(project.get_service('web').containers()), 1)
+        self.assertEqual(len(project.get_service('db').containers()), 1)
+        self.assertEqual(len(project.get_service('data').containers()), 1)
+        self.assertEqual(len(project.get_service('console').containers()), 0)
 
-        project.kill()
-        project.remove_stopped()
+    def test_project_up_with_no_deps(self):
+        project = Project.from_dicts(
+            name='composetest',
+            service_dicts=config.from_dictionary({
+                'console': {
+                    'image': 'busybox:latest',
+                    'command': ["top"],
+                },
+                'data': {
+                    'image': 'busybox:latest',
+                    'command': ["top"]
+                },
+                'db': {
+                    'image': 'busybox:latest',
+                    'command': ["top"],
+                    'volumes_from': ['data'],
+                },
+                'web': {
+                    'image': 'busybox:latest',
+                    'command': ["top"],
+                    'links': ['db'],
+                },
+            }),
+            client=self.client,
+        )
+        project.start()
+        self.assertEqual(len(project.containers()), 0)
+
+        project.up(['db'], start_deps=False)
+        self.assertEqual(len(project.containers(stopped=True)), 2)
+        self.assertEqual(len(project.get_service('web').containers()), 0)
+        self.assertEqual(len(project.get_service('db').containers()), 1)
+        self.assertEqual(len(project.get_service('data').containers()), 0)
+        self.assertEqual(len(project.get_service('data').containers(stopped=True)), 1)
+        self.assertEqual(len(project.get_service('console').containers()), 0)
 
     def test_unscale_after_restart(self):
         web = self.create_service('web')
-        project = Project('figtest', [web], self.client)
+        project = Project('composetest', [web], self.client)
 
         project.start()
 
@@ -243,5 +367,3 @@ class ProjectTest(DockerClientTestCase):
         project.up()
         service = project.get_service('web')
         self.assertEqual(len(service.containers()), 1)
-        project.kill()
-        project.remove_stopped()
