@@ -21,7 +21,7 @@ from .docopt_command import NoSuchCommand
 from .errors import UserError
 from .formatter import Formatter
 from .log_printer import LogPrinter
-from .utils import trim, flat_map, yesno, get_version_info
+from .utils import yesno, get_version_info
 
 log = logging.getLogger(__name__)
 
@@ -101,7 +101,6 @@ class TopLevelCommand(Command):
       up                 Create and start containers
       migrate-to-labels  Recreate containers to add labels
       version            Show the Docker-Compose version information
-      volumes            List volumes used by containers
 
     """
     def docopt_options(self):
@@ -195,23 +194,33 @@ class TopLevelCommand(Command):
         Options:
             -q    Only display IDs
         """
-        containers = get_sorted_containers(project, options['SERVICE'])
+        containers = sorted(
+            project.containers(service_names=options['SERVICE'], stopped=True) +
+            project.containers(service_names=options['SERVICE'], one_off=True),
+            key=attrgetter('name'))
 
         if options['-q']:
             for container in containers:
                 print(container.id)
-            return
-
-        def build_row(container):
-            return [
-                container.name,
-                trim(container.human_readable_command, 30),
-                container.human_readable_state,
-                container.human_readable_ports,
+        else:
+            headers = [
+                'Name',
+                'Command',
+                'State',
+                'Ports',
             ]
-
-        headers = ['Name', 'Command', 'State', 'Ports']
-        print(Formatter().table(headers, map(build_row, containers)))
+            rows = []
+            for container in containers:
+                command = container.human_readable_command
+                if len(command) > 30:
+                    command = '%s ...' % command[:26]
+                rows.append([
+                    container.name,
+                    command,
+                    container.human_readable_state,
+                    container.human_readable_ports,
+                ])
+            print(Formatter().table(headers, rows))
 
     def pull(self, project, options):
         """
@@ -493,27 +502,6 @@ class TopLevelCommand(Command):
             print(__version__)
         else:
             print(get_version_info('full'))
-
-    def volumes(self, project, options):
-        """
-        List volumes used by containers.
-
-        Usage: volumes [SERVICE...]
-        """
-        containers = get_sorted_containers(project, options['SERVICE'])
-
-        def build_row(container):
-            return [(container.name,) + volume for volume in container.volumes]
-
-        headers = ['Name', 'Path', 'Mode', 'Host']
-        print(Formatter().table(headers, list(flat_map(build_row, containers))))
-
-
-def get_sorted_containers(project, services):
-    return sorted(
-        project.containers(service_names=services, stopped=True) +
-        project.containers(service_names=services, one_off=True),
-        key=attrgetter('name'))
 
 
 def list_containers(containers):

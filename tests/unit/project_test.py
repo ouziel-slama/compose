@@ -1,16 +1,12 @@
 from __future__ import unicode_literals
-
-import docker
-import mock
 from .. import unittest
-
-from compose.service import (
-    Service,
-    ServiceLink,
-)
+from compose.service import Service
 from compose.project import Project, NoSuchService
 from compose.container import Container
 from compose import config
+
+import mock
+import docker
 
 
 class ProjectTest(unittest.TestCase):
@@ -123,7 +119,7 @@ class ProjectTest(unittest.TestCase):
             project='composetest',
             name='web',
             image='foo',
-            links=[ServiceLink(db, 'database')]
+            links=[(db, 'database')]
         )
         cache = Service(
             project='composetest',
@@ -134,7 +130,7 @@ class ProjectTest(unittest.TestCase):
             project='composetest',
             name='console',
             image='foo',
-            links=[ServiceLink(web, 'web')]
+            links=[(web, 'web')]
         )
         project = Project('test', [web, db, cache, console], None)
         self.assertEqual(
@@ -152,7 +148,7 @@ class ProjectTest(unittest.TestCase):
             project='composetest',
             name='web',
             image='foo',
-            links=[ServiceLink(db, 'database')]
+            links=[(db, 'database')]
         )
         project = Project('test', [web, db], None)
         self.assertEqual(

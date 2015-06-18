@@ -4,7 +4,7 @@ from .. import unittest
 import mock
 import docker
 
-from compose.container import Container, Volume
+from compose.container import Container
 from compose.container import get_container_name
 
 
@@ -122,27 +122,6 @@ class ContainerTest(unittest.TestCase):
         self.assertEqual(
             container.get_local_port(45454, protocol='tcp'),
             '0.0.0.0:49197')
-
-    def test_volumes(self):
-        container = Container(None, {
-            "Volumes": {
-                "/sys": "/sys",
-                "/var/lib/docker": "/var/lib/docker",
-                "/etc": "/var/lib/docker/vfs/dir/531d0515",
-            },
-            "VolumesRW": {
-                "/sys": False,
-                "/var/lib/docker": True,
-                "/etc": True,
-            }
-        }, has_been_inspected=True)
-        self.assertEqual(
-            sorted(container.volumes),
-            [
-                Volume('/etc', 'rw', '/var/lib/docker/vfs/dir/531d0515'),
-                Volume('/sys', 'ro', '/sys'),
-                Volume('/var/lib/docker', 'rw', '/var/lib/docker'),
-            ])
 
     def test_get(self):
         container = Container(None, {

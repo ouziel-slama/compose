@@ -4,7 +4,6 @@ from compose import config
 from compose.const import LABEL_PROJECT
 from compose.project import Project
 from compose.container import Container
-from compose.service import ServiceLink
 from .testcases import DockerClientTestCase
 
 
@@ -260,7 +259,7 @@ class ProjectTest(DockerClientTestCase):
     def test_project_up_starts_links(self):
         console = self.create_service('console')
         db = self.create_service('db', volumes=['/var/db'])
-        web = self.create_service('web', links=[ServiceLink(db, 'db')])
+        web = self.create_service('web', links=[(db, 'db')])
 
         project = Project('composetest', [web, db, console], self.client)
         project.start()

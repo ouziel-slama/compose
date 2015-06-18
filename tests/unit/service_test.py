@@ -1,10 +1,10 @@
 from __future__ import unicode_literals
 from __future__ import absolute_import
 import os
-
 from .. import unittest
-import docker
 import mock
+
+import docker
 
 from compose.service import Service
 from compose.container import Container

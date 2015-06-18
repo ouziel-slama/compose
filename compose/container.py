@@ -1,6 +1,5 @@
 from __future__ import unicode_literals
 from __future__ import absolute_import
-from collections import namedtuple
 import os
 
 import docker.errors
@@ -9,9 +8,6 @@ import six
 from functools import reduce
 
 from .const import LABEL_CONTAINER_NUMBER, LABEL_SERVICE
-
-
-Volume = namedtuple('Volume', 'path mode host')
 
 
 def retry_on_api_error(exception):
@@ -130,19 +126,6 @@ class Container(object):
     @property
     def is_running(self):
         return self.get('State.Running')
-
-    @property
-    def volumes(self):
-        def get_mode(is_rw):
-            if is_rw is None:
-                return ''
-            return 'rw' if is_rw else 'ro'
-
-        def get_volume(volume_item):
-            path, host = volume_item
-            return Volume(path, get_mode(self.get('VolumesRW').get(path)), host)
-
-        return map(get_volume, six.iteritems(self.get('Volumes')))
 
     def get(self, key):
         """Return a value from the container or None if the value is not set.

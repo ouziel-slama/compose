@@ -73,9 +73,6 @@ VolumeSpec = namedtuple('VolumeSpec', 'external internal mode')
 ServiceName = namedtuple('ServiceName', 'project service number')
 
 
-ServiceLink = namedtuple('ServiceLink', 'service alias')
-
-
 ConvergencePlan = namedtuple('ConvergencePlan', 'action containers')
 
 
@@ -349,9 +346,9 @@ class Service(object):
         try:
             container.stop(timeout=timeout)
         except APIError as e:
-            if (e.response.status_code == 500 and
-                    e.explanation and
-                    'no such process' in str(e.explanation)):
+            if (e.response.status_code == 500
+                    and e.explanation
+                    and 'no such process' in str(e.explanation)):
                 pass
             else:
                 raise
@@ -399,7 +396,7 @@ class Service(object):
                 ([net_name] if net_name else []))
 
     def get_linked_names(self):
-        return [link.service.name for link in self.links]
+        return [s.name for (s, _) in self.links]
 
     def get_volumes_from_names(self):
         return [s.name for s in self.volumes_from if isinstance(s, Service)]
@@ -509,9 +506,9 @@ class Service(object):
         # unqualified hostname and a domainname unless domainname
         # was also given explicitly. This matches the behavior of
         # the official Docker CLI in that scenario.
-        if ('hostname' in container_options and
-                'domainname' not in container_options and
-                '.' in container_options['hostname']):
+        if ('hostname' in container_options
+                and 'domainname' not in container_options
+                and '.' in container_options['hostname']):
             parts = container_options['hostname'].partition('.')
             container_options['hostname'] = parts[0]
             container_options['domainname'] = parts[2]

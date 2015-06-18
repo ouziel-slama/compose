@@ -4,7 +4,6 @@ from __future__ import division
 
 from .. import __version__
 import datetime
-import itertools
 from docker import version as docker_py_version
 import os
 import platform
@@ -56,16 +55,6 @@ def prettydate(d):
         return '1 hour ago'
     else:
         return '{0} hours ago'.format(s / 3600)
-
-
-def trim(source, length, extra=' ...'):
-    if len(source) > length:
-        return '%s%s' % (source[:length - len(extra)], extra)
-    return source
-
-
-def flat_map(func, seq):
-    return itertools.chain.from_iterable(map(func, seq))
 
 
 def mkdir(path, permissions=0o700):
