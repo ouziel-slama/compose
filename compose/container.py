@@ -55,16 +55,6 @@ class Container(object):
         response = client.create_container(**options)
         return cls.from_id(client, response['Id'])
 
-    @classmethod
-    def create_with_name(cls, client, name=None, **options):
-        response = client.create_container(name=name, **options)
-        dictionary = {
-            'Name': '/' + name,
-            'Image': options.get('image'),
-            'Id': response['Id'],
-        }
-        return cls(client, dictionary)
-
     @property
     def id(self):
         return self.dictionary['Id']

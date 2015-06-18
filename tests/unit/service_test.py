@@ -306,12 +306,10 @@ class ServiceTest(unittest.TestCase):
         self.assertFalse(self.mock_client.build.called)
 
     @mock.patch.dict(os.environ)
-    def test_get_image_name_with_envvars(self):
+    def test_image_name_with_envvars(self):
         os.environ['USE_TAG'] = '12345'
-        service = Service('foo')
-        self.assertEqual(
-            service._get_image_name('something:${USE_TAG}'),
-            'something:12345')
+        service = Service('foo', image='something:${USE_TAG}')
+        self.assertEqual(service.image_name, 'something:12345')
 
     def test_create_container_no_build_but_needs_build(self):
         service = Service('foo', client=self.mock_client, build='.')

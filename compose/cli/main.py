@@ -2,7 +2,6 @@ from __future__ import print_function
 from __future__ import unicode_literals
 from inspect import getdoc
 from operator import attrgetter
-import itertools
 import logging
 import re
 import signal
@@ -22,7 +21,7 @@ from .docopt_command import NoSuchCommand
 from .errors import UserError
 from .formatter import Formatter
 from .log_printer import LogPrinter
-from .utils import trim, yesno, get_version_info
+from .utils import trim, flat_map, yesno, get_version_info
 
 log = logging.getLogger(__name__)
 
@@ -63,7 +62,6 @@ def setup_logging():
     root_logger.setLevel(logging.DEBUG)
 
     logging.getLogger("requests").setLevel(logging.WARN)
-    logging.getLogger("boto").setLevel(logging.WARN)
 
 
 # stolen from docopt master
@@ -103,7 +101,7 @@ class TopLevelCommand(Command):
       up                 Create and start containers
       migrate-to-labels  Recreate containers to add labels
       version            Show the Docker-Compose version information
-      volumes   List volumes used by containers
+      volumes            List volumes used by containers
 
     """
     def docopt_options(self):
@@ -516,10 +514,6 @@ def get_sorted_containers(project, services):
         project.containers(service_names=services, stopped=True) +
         project.containers(service_names=services, one_off=True),
         key=attrgetter('name'))
-
-
-def flat_map(func, seq):
-    return itertools.chain.from_iterable(map(func, seq))
 
 
 def list_containers(containers):

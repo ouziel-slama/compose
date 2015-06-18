@@ -1,27 +1,22 @@
 from __future__ import unicode_literals
 from __future__ import absolute_import
-from itertools import chain
 import logging
 from functools import reduce
-from operator import (
-    attrgetter,
-    itemgetter,
-)
 
 from docker.errors import APIError
 
 from .config import get_service_name_from_net, ConfigurationError
 from .const import LABEL_PROJECT, LABEL_SERVICE, LABEL_ONE_OFF, DEFAULT_TIMEOUT
+from .service import Service
 from .container import Container
 from .legacy import check_for_legacy_containers
-from .service import Service
 
 log = logging.getLogger(__name__)
 
 
 def sort_service_dicts(services):
     # Topological sort (Cormen/Tarjan algorithm).
-    unmarked = sorted(services, key=itemgetter('name'))
+    unmarked = services[:]
     temporary_marked = set()
     sorted_services = []
 
@@ -63,13 +58,10 @@ class Project(object):
     """
     A collection of services.
     """
-    def __init__(self, name, services, client, namespace=None, external_projects=None):
+    def __init__(self, name, services, client):
         self.name = name
         self.services = services
         self.client = client
-        # The top level project name is the namespace for included projects
-        self.namespace = namespace or name
-        self.external_projects = external_projects or []
 
     def labels(self, one_off=False):
         return [
@@ -78,20 +70,18 @@ class Project(object):
         ]
 
     @classmethod
-    def from_dicts(cls, name, service_dicts, client, namespace, external_projects):
+    def from_dicts(cls, name, service_dicts, client):
         """
         Construct a ServiceCollection from a list of dicts representing services.
         """
-        project = cls(name, [], client, namespace, external_projects)
+        project = cls(name, [], client)
         for service_dict in sort_service_dicts(service_dicts):
-            links = project.get_links(service_dict.pop('links', None),
-                                      service_dict['name'])
+            links = project.get_links(service_dict)
             volumes_from = project.get_volumes_from(service_dict)
             net = project.get_net(service_dict)
 
             project.services.append(Service(client=client, project=name, links=links, net=net,
                                             volumes_from=volumes_from, **service_dict))
-
         return project
 
     @property
@@ -99,36 +89,15 @@ class Project(object):
         return [service.name for service in self.services]
 
     def get_service(self, name):
-        """Retrieve a service by name.
-
-        :param name: name of the service
-        :returns: :class:`fig.service.Service`
-        :raises NoSuchService: if no service was found by that name
         """
-        if '_' in name:
-            project_name, service_name = name.rsplit('_', 1)
-            if project_name != self.namespace:
-                # References (link, etc) do not contain the namespace, so add it
-                project_name = self.namespace + project_name
-        else:
-            project_name, service_name = self.name, name
-
-        if project_name == self.name:
-            for service in self.services:
-                if service.name == service_name:
-                    return service
-
-        for project in self.external_projects:
-            if project.name == project_name:
-                return project.get_service(service_name)
+        Retrieve a service by name. Raises NoSuchService
+        if the named service does not exist.
+        """
+        for service in self.services:
+            if service.name == name:
+                return service
 
         raise NoSuchService(name)
-
-    # TODO: still used?
-    @property
-    def all_services(self):
-        return (flat_map(attrgetter('services'), self.external_projects) +
-                self.services)
 
     def validate_service_names(self, service_names):
         """
@@ -187,19 +156,18 @@ class Project(object):
 
     def get_volumes_from(self, service_dict):
         volumes_from = []
-        for volume_name in service_dict.pop('volumes_from', []):
-            try:
-                service = self.get_service(volume_name)
-                volumes_from.append(service)
-            except NoSuchService:
+        if 'volumes_from' in service_dict:
+            for volume_name in service_dict.get('volumes_from', []):
                 try:
-                    container = Container.from_id(self.client, volume_name)
-                    volumes_from.append(container)
-                except APIError:
-                    raise ConfigurationError(
-                        'Service "%s" mounts volumes from "%s", which is not '
-                        'the name of a service or container.' % (
-                            service_dict['name'], volume_name))
+                    service = self.get_service(volume_name)
+                    volumes_from.append(service)
+                except NoSuchService:
+                    try:
+                        container = Container.from_id(self.client, volume_name)
+                        volumes_from.append(container)
+                    except APIError:
+                        raise ConfigurationError('Service "%s" mounts volumes from "%s", which is not the name of a service or container.' % (service_dict['name'], volume_name))
+            del service_dict['volumes_from']
         return volumes_from
 
     def get_net(self, service_dict):
@@ -254,8 +222,6 @@ class Project(object):
            smart_recreate=False,
            insecure_registry=False,
            do_build=True,
-           # TODO: not used
-           fresh_start=False,
            timeout=DEFAULT_TIMEOUT):
 
         services = self.get_services(service_names, include_deps=start_deps)
@@ -319,12 +285,6 @@ class Project(object):
         for service in self.get_services(service_names):
             service.remove_stopped(**options)
 
-    def __repr__(self):
-        return "Project(%s, services=%s, includes=%s)" % (
-            self.name,
-            len(self.services),
-            len(self.external_projects))
-
     def containers(self, service_names=None, stopped=False, one_off=False):
         if service_names:
             self.validate_service_names(service_names)
@@ -362,11 +322,6 @@ class Project(object):
 
         dep_services.append(service)
         return acc + dep_services
-
-
-# TODO: still necessary ?
-def flat_map(func, seq):
-    return list(chain.from_iterable(map(func, seq)))
 
 
 class NoSuchService(Exception):

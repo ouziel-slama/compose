@@ -224,7 +224,6 @@ class Service(object):
         if 'name' in container_options and not quiet:
             log.info("Creating %s..." % container_options['name'])
 
-        # TODO: create_with_name to remove extra inspect call
         return Container.create(self.client, **container_options)
 
     def ensure_image_exists(self,
@@ -380,24 +379,6 @@ class Service(object):
             log.info("Starting %s..." % container.name)
             return self.start_container(container)
 
-    def fresh_start(self, insecure_registry=False, detach=False, do_build=True):
-        """Start containers for this service, assuming that no containers exist
-        already. If there is a previous container, this operation will fail.
-
-        This may be used when you're sure that you're starting a container
-        with a unique name, and you don't want to wait for the relatively
-        slow "list all containers to find the next name operation".
-        """
-        containers = []
-        log.info("Creating %s..." % self._next_container_name(containers))
-        new_container = self.create_container(
-            insecure_registry=insecure_registry,
-            detach=detach,
-            do_build=do_build,
-            all_containers=containers,
-        )
-        return [self.start_container(new_container, service_only_links=True)]
-
     def start_container(self, container):
         container.start()
         return container
@@ -418,10 +399,7 @@ class Service(object):
                 ([net_name] if net_name else []))
 
     def get_linked_names(self):
-        return [link.service.full_name for link in self.links]
-
-    def get_linked_services(self):
-        return [link.service for link in self.links]
+        return [link.service.name for link in self.links]
 
     def get_volumes_from_names(self):
         return [s.name for s in self.volumes_from if isinstance(s, Service)]
@@ -447,17 +425,8 @@ class Service(object):
         ]
         return 1 if not numbers else max(numbers) + 1
 
-    def _get_links(self, link_to_self, service_only_links=False):
+    def _get_links(self, link_to_self):
         links = []
-
-        if service_only_links:
-            for service, link_name in self.links:
-                container_name = service.full_name + '_1'
-                links.append((container_name, link_name or service.name))
-                links.append((container_name, container_name))
-                links.append((container_name, service.name + '_1'))
-            return links
-
         for service, link_name in self.links:
             for container in service.containers():
                 links.append((container.name, link_name or service.name))
@@ -698,32 +667,20 @@ class Service(object):
                 return False
         return True
 
+    @api_retry
     def pull(self, insecure_registry=False):
         if 'image' not in self.options:
             return
 
-        # TODO: this needs os.path.expandvars as well
-        repo, tag = parse_repository_tag(self.options['image'])
+        repo, tag = parse_repository_tag(self.image_name)
         tag = tag or 'latest'
         log.info('Pulling %s (%s:%s)...' % (self.name, repo, tag))
-        # TODO: use pull_image helper with retry
         output = self.client.pull(
             repo,
             tag=tag,
             stream=True,
             insecure_registry=insecure_registry)
         stream_output(output, sys.stdout)
-
-    def __repr__(self):
-        return "Service(%s, project='%s', links=%r)" % (
-            self.name,
-            self.project,
-            self.get_linked_names())
-
-
-@api_retry
-def pull_image(client, *args, **kwargs):
-    return client.pull(*args, **kwargs)
 
 
 # Names

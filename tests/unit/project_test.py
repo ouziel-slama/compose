@@ -24,7 +24,7 @@ class ProjectTest(unittest.TestCase):
                 'name': 'db',
                 'image': 'busybox:latest'
             },
-        ], None, None, None)
+        ], None)
         self.assertEqual(len(project.services), 2)
         self.assertEqual(project.get_service('web').name, 'web')
         self.assertEqual(project.get_service('web').options['image'], 'busybox:latest')
@@ -48,7 +48,7 @@ class ProjectTest(unittest.TestCase):
                 'image': 'busybox:latest',
                 'volumes': ['/tmp'],
             }
-        ], None, None, None)
+        ], None)
 
         self.assertEqual(project.services[0].name, 'volume')
         self.assertEqual(project.services[1].name, 'db')
@@ -70,54 +70,6 @@ class ProjectTest(unittest.TestCase):
         self.assertEqual(project.get_service('db').name, 'db')
         self.assertEqual(project.get_service('db').options['image'], 'busybox:latest')
 
-    def test_up_with_fresh_start(self):
-        mock_client = mock.create_autospec(docker.Client)
-        services = [
-            {'name': 'web', 'image': 'busybox:latest', 'links': ['db']},
-            {'name': 'db', 'image': 'busybox:latest'},
-        ]
-        project = Project.from_dicts('test', services, mock_client, None, None)
-        containers = project.up(do_build=False, fresh_start=True)
-        self.assertEqual(len(containers), 2)
-
-        def build_start_call(links):
-            return mock.call.start(
-                mock_client.create_container.return_value.__getitem__.return_value,
-                links=links,
-                cap_add=None,
-                restart_policy=None,
-                dns_search=None,
-                network_mode='bridge',
-                binds={},
-                dns=None,
-                volumes_from=[],
-                port_bindings={},
-                cap_drop=None,
-                privileged=False,
-            )
-
-        expected = [
-            mock.call.create_container(
-                environment={},
-                image='busybox:latest',
-                detach=False,
-                name='test_db_1',
-            ),
-            build_start_call([]),
-            mock.call.create_container(
-                environment={},
-                image='busybox:latest',
-                detach=False,
-                name='test_web_1',
-            ),
-            build_start_call([
-                ('test_db_1', 'db'),
-                ('test_db_1', 'test_db_1'),
-                ('test_db_1', 'db_1'),
-            ]),
-        ]
-        self.assertEqual(mock_client.method_calls, expected)
-
     def test_get_service(self):
         web = Service(
             project='composetest',
@@ -125,31 +77,13 @@ class ProjectTest(unittest.TestCase):
             client=None,
             image="busybox:latest",
         )
-        project = Project('test', [web], None, None)
+        project = Project('test', [web], None)
         self.assertEqual(project.get_service('web'), web)
 
-    def test_get_service_with_project_name(self):
-        web = Service(project='figtest', name='web')
-        project = Project('test', [web], None, None)
-        self.assertEqual(project.get_service('test_web'), web)
-
     def test_get_service_not_found(self):
-        project = Project('test', [], None, None)
+        project = Project('test', [], None)
         with self.assertRaises(NoSuchService):
             project.get_service('not_found')
-
-    def test_get_service_from_external(self):
-        project_name = 'theproject'
-        web = Service(project='test', name='web')
-        external_web = Service(project='other', name='web')
-        external_project = Project(
-            project_name + 'other',
-            [external_web],
-            None,
-            project_name)
-        project = Project(project_name, [web], None, None, [external_project])
-
-        self.assertEqual(project.get_service('other_web'), external_web)
 
     def test_get_services_returns_all_services_without_args(self):
         web = Service(
