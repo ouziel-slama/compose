@@ -9,7 +9,6 @@ from compose.project import Project
 from compose.container import Container
 
 
-
 class ProjectTest(unittest.TestCase):
     def test_from_dict(self):
         project = Project.from_dicts('composetest', [

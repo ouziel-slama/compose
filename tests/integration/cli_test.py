@@ -461,7 +461,7 @@ class CLITestCase(DockerClientTestCase):
             self.project.containers(service_names=['simple']),
             key=attrgetter('name'))
 
-        @patch('sys.stdout', new_callable=StringIO)
+        @mock.patch('sys.stdout', new_callable=StringIO)
         def get_port(number, mock_stdout, index=None):
             if index is None:
                 self.command.dispatch(['port', 'simple', str(number)], None)

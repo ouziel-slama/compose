@@ -1,7 +1,7 @@
 from __future__ import unicode_literals
 from __future__ import absolute_import
 import logging
-from six.moves import reduce
+from functools import reduce
 
 from docker.errors import APIError
 
@@ -308,7 +308,7 @@ class Project(object):
                 stopped=stopped,
                 one_off=one_off)
 
-        return filter(matches_service_names, containers)
+        return [c for c in containers if matches_service_names(c)]
 
     def _inject_deps(self, acc, service):
         dep_names = service.get_dependency_names()

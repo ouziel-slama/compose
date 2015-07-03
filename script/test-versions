@@ -22,5 +22,5 @@ for version in $DOCKER_VERSIONS; do
     -e "DOCKER_VERSION=$version" \
     --entrypoint="script/dind" \
     "$TAG" \
-    script/wrapdocker tox "$@"
+    script/wrapdocker tox -e py27,py34 -- "$@"
 done
