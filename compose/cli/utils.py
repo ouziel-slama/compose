@@ -10,6 +10,7 @@ import platform
 import subprocess
 import ssl
 
+import six
 from six.moves import input
 
 
@@ -100,6 +101,8 @@ def split_buffer(reader, separator):
     separator = str(separator)
 
     for data in reader:
+        if six.PY3 and not isinstance(data, str):
+            data = data.decode('utf-8')
         buffered += data
         while True:
             index = buffered.find(separator)
